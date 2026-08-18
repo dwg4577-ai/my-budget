@@ -1,6 +1,6 @@
 const KEY='jihyeonBudgetV1';
 const seed={budgetMe:1000000,budgetMom:1000000,categories:['식비','카페','쇼핑','생활','교통','의료','미용','문화·여가','구독','보험','기타'],methods:[{n:'내 신용카드',owner:'me'},{n:'엄마카드',owner:'mom'},{n:'계좌이체',owner:'me'},{n:'체크카드',owner:'me'}],tx:[],fixed:[]};
-let db=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(seed), tab='home', selectedMonth=currentMonth(), calExcludeMom=false, analysisExcludeMom=false, historyMethodFilter='', historyCategoryFilter='';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(seed), tab='home', selectedMonth=currentMonth(), calExcludeMom=false, analysisExcludeMom=false, historyMethodFilter='', historyCategoryFilter='', historySearch='';
 db.categories ||= seed.categories; db.methods ||= seed.methods; db.tx ||= []; db.fixed ||= [];
 if(!db.methods.some(x=>x.n==='체크카드')) db.methods.push({n:'체크카드',owner:'me'});
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
@@ -165,7 +165,7 @@ function render(){
     const pct=totalBudget?Math.min(100,total/totalBudget*100):0;
     const fixedPlanned=db.fixed.reduce((sum,f)=>sum+Number(f.amount||0),0);
     const fixedPaid=db.fixed.reduce((sum,f)=>{const tx=db.tx.find(x=>x.id===fixedTxId(f));return sum+(tx?Number(tx.amount||0):0)},0);
-    a.innerHTML=`<div class='homeTitleLine'><h1>지현이의 가계부🤑</h1><span class='versionBadge'>v10.7</span></div>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
+    a.innerHTML=`<div class='homeTitleLine'><h1>지현이의 가계부🤑</h1><span class='versionBadge'>v10.8</span></div>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
     <div class='monthOverview clickableCard' onclick='showHomeDetail("all")'>
       <div class='cardTopLine'><div class=muted>${monthLabel()} 전체 지출</div><span class=cardChevron>›</span></div>
       <div class='overviewAmount'>${won(total)}</div>
@@ -188,7 +188,9 @@ function render(){
     let t=monthTx(selectedMonth).slice().sort((a,b)=>b.date.localeCompare(a.date));
     if(historyMethodFilter)t=t.filter(x=>x.method===historyMethodFilter);
     if(historyCategoryFilter)t=t.filter(x=>x.category===historyCategoryFilter);
+    if(historySearch.trim()){const q=historySearch.trim().toLocaleLowerCase('ko-KR');t=t.filter(x=>String(x.memo||'').toLocaleLowerCase('ko-KR').includes(q));}
     a.innerHTML=`<h1>내역</h1>${monthNavHtml('historyMonthNav')}
+      <div class='historySearchWrap'><span class='historySearchIcon'>⌕</span><input id='historySearch' class='historySearch' type='search' inputmode='search' autocomplete='off' placeholder='내용 검색 (예: 다이소, 보험)' value='${esc(historySearch)}' oninput='setHistorySearch(this.value)'></div>
       <div class='historyFilters'>
         <select onchange='setHistoryMethod(this.value)'><option value=''>전체 결제수단</option>${db.methods.map(p=>`<option value='${esc(p.n)}' ${historyMethodFilter===p.n?'selected':''}>${esc(p.n)}</option>`).join('')}</select>
         <select onchange='setHistoryCategory(this.value)'><option value=''>전체 카테고리</option>${db.categories.map(c=>`<option value='${esc(c)}' ${historyCategoryFilter===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
@@ -235,6 +237,7 @@ function render(){
 }
 window.setHistoryMethod=v=>{historyMethodFilter=v;render()};
 window.setHistoryCategory=v=>{historyCategoryFilter=v;render()};
+window.setHistorySearch=v=>{historySearch=v;render();requestAnimationFrame(()=>{const el=document.querySelector('#historySearch');if(el){el.focus();try{el.setSelectionRange(v.length,v.length)}catch(e){}}})};
 window.showHomeDetail=type=>{
   let t=monthTx(selectedMonth).slice();
   let title=`${monthLabel()} 전체 지출`;

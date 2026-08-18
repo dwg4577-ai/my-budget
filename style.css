@@ -770,3 +770,46 @@ nav button{font-size:10px}nav button .navEmoji{font-size:17px}
 .weekDays{
   width:100%;
 }
+
+
+/* ===== v10.8 iPhone zoom prevention + history memo search ===== */
+/* iOS Safari/PWA zooms focused form controls below 16px. Keep form controls at 16px while surrounding UI stays compact. */
+input,
+select,
+textarea{
+  font-size:16px !important;
+}
+.editDialog input,
+.editDialog select,
+dialog input,
+dialog select{
+  font-size:16px !important;
+}
+.historySearchWrap{
+  position:relative;
+  margin:0 0 9px;
+}
+.historySearchWrap .historySearchIcon{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#9aa0a8;
+  font-size:15px;
+  pointer-events:none;
+  z-index:1;
+}
+.historySearch{
+  width:100%;
+  margin:0 !important;
+  padding:10px 12px 10px 36px !important;
+  border:1px solid #e1e3e6;
+  border-radius:12px;
+  background:#fff;
+  color:#222;
+  line-height:1.2;
+  -webkit-appearance:none;
+  appearance:none;
+}
+.historySearch::placeholder{color:#9aa0a8}
+.historySearch::-webkit-search-cancel-button{opacity:.55}
