@@ -165,7 +165,7 @@ function render(){
     const pct=totalBudget?Math.min(100,total/totalBudget*100):0;
     const fixedPlanned=db.fixed.reduce((sum,f)=>sum+Number(f.amount||0),0);
     const fixedPaid=db.fixed.reduce((sum,f)=>{const tx=db.tx.find(x=>x.id===fixedTxId(f));return sum+(tx?Number(tx.amount||0):0)},0);
-    a.innerHTML=`<div class='homeTitleLine'><h1>지현이의 가계부🤑</h1><span class='versionBadge'>v10.8</span></div>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
+    a.innerHTML=`<div class='homeTitleLine'><h1>지현이의 가계부🤑</h1><span class='versionBadge'>v10.9</span></div>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
     <div class='monthOverview clickableCard' onclick='showHomeDetail("all")'>
       <div class='cardTopLine'><div class=muted>${monthLabel()} 전체 지출</div><span class=cardChevron>›</span></div>
       <div class='overviewAmount'>${won(total)}</div>
@@ -185,18 +185,13 @@ function render(){
     </div>
     <div class=card><h3>최근 지출</h3>${s.t.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(x=>`<div class='row listitem'><span>${esc(x.memo||x.category)}<br><span class=muted>${esc(x.method)}</span></span><b>${won(x.amount)}</b></div>`).join('')||'<p class=muted>아직 기록이 없어요.</p>'}</div>`;
   } else if(tab==='history'){
-    let t=monthTx(selectedMonth).slice().sort((a,b)=>b.date.localeCompare(a.date));
-    if(historyMethodFilter)t=t.filter(x=>x.method===historyMethodFilter);
-    if(historyCategoryFilter)t=t.filter(x=>x.category===historyCategoryFilter);
-    if(historySearch.trim()){const q=historySearch.trim().toLocaleLowerCase('ko-KR');t=t.filter(x=>String(x.memo||'').toLocaleLowerCase('ko-KR').includes(q));}
     a.innerHTML=`<h1>내역</h1>${monthNavHtml('historyMonthNav')}
-      <div class='historySearchWrap'><span class='historySearchIcon'>⌕</span><input id='historySearch' class='historySearch' type='search' inputmode='search' autocomplete='off' placeholder='내용 검색 (예: 다이소, 보험)' value='${esc(historySearch)}' oninput='setHistorySearch(this.value)'></div>
+      <div class='historySearchWrap'><span class='historySearchIcon'>⌕</span><input id='historySearch' class='historySearch' type='search' inputmode='search' autocomplete='off' placeholder='내용 검색 (예: 다이소, 보험)' value='${esc(historySearch)}' oninput='setHistorySearch(this.value,event)'></div>
       <div class='historyFilters'>
         <select onchange='setHistoryMethod(this.value)'><option value=''>전체 결제수단</option>${db.methods.map(p=>`<option value='${esc(p.n)}' ${historyMethodFilter===p.n?'selected':''}>${esc(p.n)}</option>`).join('')}</select>
         <select onchange='setHistoryCategory(this.value)'><option value=''>전체 카테고리</option>${db.categories.map(c=>`<option value='${esc(c)}' ${historyCategoryFilter===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
       </div>
-      <div class='filterCaption'><span>${monthLabel()}</span><span>${t.length}건 · ${won(t.reduce((s,x)=>s+Number(x.amount||0),0))}</span></div>
-      <div class=card>${t.map(x=>`<div class='row listitem historyItem' onclick='editTx("${x.id}")'><span>${esc(x.date)} · ${esc(x.category)}<br><span class=muted>${esc(x.method)} · ${esc(x.memo||'')}</span></span><span class='historyRight'><b>${won(x.amount)}</b><span class=editHint>수정 ›</span></span></div>`).join('')||`<p class=muted>조건에 맞는 ${monthLabel()} 기록이 없어요.</p>`}</div>`;
+      <div id='historyResults'>${historyResultsHtml()}</div>`;
   } else if(tab==='calendar'){
     a.innerHTML=renderCalendar();
   } else if(tab==='analysis'){
@@ -235,9 +230,28 @@ function render(){
     </div></div>`;
   }
 }
-window.setHistoryMethod=v=>{historyMethodFilter=v;render()};
-window.setHistoryCategory=v=>{historyCategoryFilter=v;render()};
-window.setHistorySearch=v=>{historySearch=v;render();requestAnimationFrame(()=>{const el=document.querySelector('#historySearch');if(el){el.focus();try{el.setSelectionRange(v.length,v.length)}catch(e){}}})};
+function historyResultsHtml(){
+  let t=monthTx(selectedMonth).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  if(historyMethodFilter)t=t.filter(x=>x.method===historyMethodFilter);
+  if(historyCategoryFilter)t=t.filter(x=>x.category===historyCategoryFilter);
+  if(historySearch.trim()){
+    const q=historySearch.trim().toLocaleLowerCase('ko-KR');
+    t=t.filter(x=>String(x.memo||'').toLocaleLowerCase('ko-KR').includes(q));
+  }
+  return `<div class='filterCaption'><span>${monthLabel()}</span><span>${t.length}건 · ${won(t.reduce((s,x)=>s+Number(x.amount||0),0))}</span></div>
+    <div class=card>${t.map(x=>`<div class='row listitem historyItem' onclick='editTx("${x.id}")'><span>${esc(x.date)} · ${esc(x.category)}<br><span class=muted>${esc(x.method)} · ${esc(x.memo||'')}</span></span><span class='historyRight'><b>${won(x.amount)}</b><span class=editHint>수정 ›</span></span></div>`).join('')||`<p class=muted>조건에 맞는 ${monthLabel()} 기록이 없어요.</p>`}</div>`;
+}
+function refreshHistoryResults(){
+  const box=document.querySelector('#historyResults');
+  if(box) box.innerHTML=historyResultsHtml();
+}
+window.setHistoryMethod=v=>{historyMethodFilter=v;refreshHistoryResults()};
+window.setHistoryCategory=v=>{historyCategoryFilter=v;refreshHistoryResults()};
+window.setHistorySearch=(v,e)=>{
+  historySearch=v;
+  if(e&&e.isComposing) return;
+  refreshHistoryResults();
+};
 window.showHomeDetail=type=>{
   let t=monthTx(selectedMonth).slice();
   let title=`${monthLabel()} 전체 지출`;
