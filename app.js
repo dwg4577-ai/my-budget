@@ -165,7 +165,7 @@ function render(){
     const pct=totalBudget?Math.min(100,total/totalBudget*100):0;
     const fixedPlanned=db.fixed.reduce((sum,f)=>sum+Number(f.amount||0),0);
     const fixedPaid=db.fixed.reduce((sum,f)=>{const tx=db.tx.find(x=>x.id===fixedTxId(f));return sum+(tx?Number(tx.amount||0):0)},0);
-    a.innerHTML=`<div class='homeTitleLine'><h1>지현이의 가계부🤑</h1><span class='versionBadge'>v10.9</span></div>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
+    a.innerHTML=`<div class='homeTitleLine'><h1>지현이의 가계부🤑</h1><span class='versionBadge'>v10.10</span></div>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
     <div class='monthOverview clickableCard' onclick='showHomeDetail("all")'>
       <div class='cardTopLine'><div class=muted>${monthLabel()} 전체 지출</div><span class=cardChevron>›</span></div>
       <div class='overviewAmount'>${won(total)}</div>
@@ -434,5 +434,5 @@ window.restoreJson=()=>{
   r.onerror=()=>alert('파일을 여는 중 오류가 발생했어요.');
   r.readAsText(f,'utf-8');
 };
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();const app=document.querySelector('#app');if(app){app.scrollTop=0;app.scrollTo({top:0,left:0,behavior:'auto'});}});
 document.querySelector('#add').onclick=addDialog; save(); render();
