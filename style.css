@@ -396,3 +396,125 @@
   color:#777f89;
   font-size:12px;
 }
+
+/* ===== v9 shared month navigation + analysis mom-card filter ===== */
+.monthNav{
+  display:grid;
+  grid-template-columns:44px 1fr 44px;
+  align-items:center;
+  gap:8px;
+  margin:4px 0 14px;
+}
+.monthNavArrow{
+  width:44px;
+  height:44px;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:#f0f1f3;
+  color:#25282d;
+  font-size:28px;
+  line-height:1;
+}
+.monthNavTitle{
+  width:100%;
+  margin:0;
+  padding:10px 12px;
+  border:0;
+  border-radius:13px;
+  background:#fff;
+  color:#222;
+  font-size:18px;
+  font-weight:800;
+  box-shadow:0 2px 10px #00000008;
+}
+.calendarMonthPick{
+  width:auto;
+  margin:0 0 5px;
+  padding:2px 8px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:#222;
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:-0.4px;
+}
+.calendarMonthPick:active,
+.monthNavTitle:active{background:#f3f4f6}
+.monthPickerDialog{
+  width:min(90vw,380px);
+  padding:20px;
+  border:0;
+  border-radius:20px;
+}
+.monthPickerDialog::backdrop{background:rgba(0,0,0,.28)}
+.monthPickerDialog h2{margin:0 0 12px}
+.monthPickerActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.analysisFilterBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 12px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#fff;
+}
+.analysisFilterBar button{
+  width:auto;
+  margin:0;
+  padding:9px 12px;
+  border:1px solid #e2e5e9;
+  border-radius:999px;
+  background:#f7f8fa;
+  color:#505761;
+  font-size:12px;
+}
+.analysisFilterBar button.active{
+  background:#20242a;
+  color:#fff;
+  border-color:#20242a;
+}
+.analysisFilterBar span{font-size:12px;color:#9097a1}
+.analysisTotal{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin:-2px 0 14px;
+  padding:11px 12px;
+  border-radius:12px;
+  background:#f6f7f8;
+  color:#737b86;
+  font-size:13px;
+}
+.analysisTotal b{color:#31363d;font-size:15px}
+
+/* ===== v10 compact typography + richer dashboard ===== */
+:root{font-size:15px}
+main{padding:18px 15px}
+h1{font-size:26px;margin:12px 0 16px}h2{font-size:19px}h3{font-size:16px}
+.card{padding:16px;margin:10px 0;border-radius:18px}
+.muted{font-size:13px}.big{font-size:25px}
+input,select,button.action{padding:11px;font-size:15px}
+nav{height:68px}
+nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:#555}
+nav button .navEmoji{font-size:19px;line-height:1.15}
+.fab{width:54px;height:54px;right:20px;bottom:84px;font-size:28px}
+.monthNavTitle{font-size:17px}.monthNavArrow{width:42px;height:42px;font-size:26px}
+.calendarMonthPick{font-size:20px}.monthTitle h1{font-size:20px}.calDate{font-size:16px}.calAmount{font-size:11px}
+.analysisRow{font-size:14px;padding:13px 0}.detailHead h2{font-size:18px}.detailTotal{font-size:15px}
+
+.clickableCard{cursor:pointer;transition:transform .08s ease,opacity .08s ease}.clickableCard:active{transform:scale(.992);opacity:.68}
+.cardTopLine{display:flex;align-items:center;justify-content:space-between;gap:10px}.cardChevron{color:#adb2ba;font-size:20px}
+.monthOverview{background:#fff;padding:16px;border-radius:18px;margin:10px 0;box-shadow:0 4px 18px #0000000c}
+.monthOverview .overviewAmount{font-size:23px;font-weight:800;margin:4px 0}
+.progressMeta{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:12px;color:#777}
+.monthComment{padding:13px 15px;border-radius:15px;background:#f3f4f6;margin:10px 0 12px;line-height:1.5;font-size:13px}
+.monthComment b{display:block;margin-bottom:2px;color:#333}
+.historyFilters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}.historyFilters select{margin:0;background:#fff}
+.filterCaption{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 2px 8px;font-size:12px;color:#868d97}
+.settingsDataList{display:grid;gap:9px}.settingsDataCard{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px;border-radius:14px;background:#f7f8fa}.settingsDataCard>div{min-width:0}.settingsDataCard strong{display:block;font-size:14px;margin-bottom:3px}.settingsDataCard span{display:block;font-size:11px;color:#7e858f;line-height:1.4}.settingsDataCard button,.settingsDataCard .compactFile{width:auto;min-width:95px;margin:0;padding:9px 10px;font-size:12px;white-space:nowrap}.compactFile{display:inline-block;background:#fff;border:1px solid #ddd;border-radius:10px}.compactFile input{display:none}
+.homeDetailDialog{width:min(92vw,500px);max-height:80vh;padding:0;overflow:hidden}.homeDetailBody{max-height:55vh;overflow:auto;padding:0 18px}.homeDetailHead{padding:18px;border-bottom:1px solid #eee}.homeDetailHead h2{margin:0 0 4px}.homeDetailFoot{padding:14px 18px;background:#f7f8fa;display:flex;justify-content:space-between;align-items:center}

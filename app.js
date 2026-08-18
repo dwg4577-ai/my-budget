@@ -1,16 +1,19 @@
 const KEY='jihyeonBudgetV1';
 const seed={budgetMe:1000000,budgetMom:1000000,categories:['식비','카페','쇼핑','생활','교통','의료','미용','문화·여가','구독','보험','기타'],methods:[{n:'내 신용카드',owner:'me'},{n:'엄마카드',owner:'mom'},{n:'계좌이체',owner:'me'},{n:'체크카드',owner:'me'}],tx:[],fixed:[]};
-let db=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(seed), tab='home', calMonth=new Date().toISOString().slice(0,7), calExcludeMom=false;
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(seed), tab='home', selectedMonth=currentMonth(), calExcludeMom=false, analysisExcludeMom=false, historyMethodFilter='', historyCategoryFilter='';
 db.categories ||= seed.categories; db.methods ||= seed.methods; db.tx ||= []; db.fixed ||= [];
 if(!db.methods.some(x=>x.n==='체크카드')) db.methods.push({n:'체크카드',owner:'me'});
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
 const won=n=>Number(n||0).toLocaleString('ko-KR')+'원';
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function currentMonth(){return new Date().toISOString().slice(0,7)}
-function monthTx(m=currentMonth()){return db.tx.filter(x=>x.date.startsWith(m))}
-function sums(){let t=monthTx(), me=0,mom=0;t.forEach(x=>{let p=db.methods.find(p=>p.n===x.method);(p?.owner==='mom'?mom+=x.amount:me+=x.amount)});return{me,mom,t}}
-function fixedTxId(f,m=currentMonth()){return `fixed:${f.id}:${m}`}
-function fixedDate(f,m=currentMonth()){let [y,mo]=m.split('-').map(Number);let last=new Date(y,mo,0).getDate();return `${m}-${String(Math.min(+f.day,last)).padStart(2,'0')}`}
+function localYmd(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function currentMonth(){return localYmd().slice(0,7)}
+function monthTx(m=selectedMonth){return db.tx.filter(x=>x.date.startsWith(m))}
+function sums(m=selectedMonth){let t=monthTx(m), me=0,mom=0;t.forEach(x=>{let p=db.methods.find(p=>p.n===x.method);(p?.owner==='mom'?mom+=x.amount:me+=x.amount)});return{me,mom,t}}
+function fixedTxId(f,m=selectedMonth){return `fixed:${f.id}:${m}`}
+function fixedDate(f,m=selectedMonth){let [y,mo]=m.split('-').map(Number);let last=new Date(y,mo,0).getDate();return `${m}-${String(Math.min(+f.day,last)).padStart(2,'0')}`}
+function monthLabel(m=selectedMonth){const [y,mo]=m.split('-').map(Number);return `${y}년 ${mo}월`}
+function monthNavHtml(extraClass=''){return `<div class="monthNav ${extraClass}"><button class="monthNavArrow" onclick="moveMonth(-1)" aria-label="이전 달">‹</button><button class="monthNavTitle" onclick="chooseMonth()">${monthLabel()}</button><button class="monthNavArrow" onclick="moveMonth(1)" aria-label="다음 달">›</button></div>`}
 function renderFixedHome(){
   if(!db.fixed.length)return `<p class=muted>설정에서 고정비를 추가할 수 있어요.</p>`;
   return db.fixed.slice().sort((a,b)=>a.day-b.day).map(f=>{
@@ -23,10 +26,10 @@ function renderFixedHome(){
   }).join('');
 }
 function renderCalendar(){
-  const [y,m]=calMonth.split('-').map(Number);
+  const [y,m]=selectedMonth.split('-').map(Number);
   const lastDay=new Date(y,m,0).getDate();
 
-  const allTx=monthTx(calMonth);
+  const allTx=monthTx(selectedMonth);
   const t=calExcludeMom
     ? allTx.filter(x=>{
         const p=db.methods.find(p=>p.n===x.method);
@@ -41,7 +44,7 @@ function renderCalendar(){
   });
 
   const total=t.reduce((s,x)=>s+Number(x.amount||0),0);
-  const today=new Date().toISOString().slice(0,10);
+  const today=localYmd();
 
   const weeks=[];
   let week=new Array(7).fill(null);
@@ -59,7 +62,7 @@ function renderCalendar(){
     const weekTotal=days.reduce((sum,d)=>sum+(d ? (byDay[d]||0) : 0),0);
     const daysHtml=days.map(d=>{
       if(!d) return `<div class="calDay blank"></div>`;
-      const ds=`${calMonth}-${String(d).padStart(2,'0')}`;
+      const ds=`${selectedMonth}-${String(d).padStart(2,'0')}`;
       const amount=byDay[d]||0;
       return `
         <button class="calDay ${ds===today?'today':''}" onclick='showDay("${ds}")'>
@@ -80,7 +83,7 @@ function renderCalendar(){
       <div class="calendarTop">
         <button class="monthArrow" onclick='moveMonth(-1)' aria-label="이전 달">‹</button>
         <div class="monthTitle">
-          <h1>${y}년 ${m}월</h1>
+          <button class="calendarMonthPick" onclick='chooseMonth()'>${y}년 ${m}월</button>
           <div class="monthSpend">월 총지출 <b>-${Number(total).toLocaleString('ko-KR')}원</b></div>
         </div>
         <button class="monthArrow" onclick='moveMonth(1)' aria-label="다음 달">›</button>
@@ -123,65 +126,129 @@ function backupStatusHtml(){
   return `<div class='backupOk'><span>백업 완료</span><span>마지막 백업 ${dateText}</span></div>`;
 }
 
+function previousMonth(m=selectedMonth){
+  const [y,mo]=m.split('-').map(Number);
+  const d=new Date(y,mo-2,1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function monthInsight(){
+  const cur=monthTx(selectedMonth);
+  const prev=monthTx(previousMonth(selectedMonth));
+  const curTotal=cur.reduce((s,x)=>s+Number(x.amount||0),0);
+  const prevTotal=prev.reduce((s,x)=>s+Number(x.amount||0),0);
+  const by={}; cur.forEach(x=>by[x.category]=(by[x.category]||0)+Number(x.amount||0));
+  const top=Object.entries(by).sort((a,b)=>b[1]-a[1])[0];
+  let line='아직 이번 달 지출이 없어요.';
+  if(curTotal && prevTotal){
+    const diff=curTotal-prevTotal;
+    if(diff===0) line='지난달과 지출 금액이 같아요.';
+    else line=`지난달보다 ${won(Math.abs(diff))} ${diff<0?'덜':'더'} 썼어요${diff<0?' 🎉':''}`;
+  }else if(curTotal && !prevTotal){
+    line=`이번 달 현재까지 ${won(curTotal)}을 사용했어요.`;
+  }
+  if(top) line+=` 가장 큰 비중은 ${top[0]} ${won(top[1])}이에요.`;
+  return line;
+}
+function homeCard(title,amount,budget,type,extra=''){
+  const pct=budget>0?Math.min(100,amount/budget*100):0;
+  return `<div class='card clickableCard' onclick='showHomeDetail(${JSON.stringify(type)})'>
+    <div class='cardTopLine'><div class=muted>${esc(title)}</div><span class=cardChevron>›</span></div>
+    <div class=big>${won(amount)} <span class=muted>/ ${won(budget)}</span></div>
+    <div class=bar><i style='width:${pct}%'></i></div>${extra}</div>`;
+}
 function render(){
   let a=document.querySelector('#app');
   if(tab==='home'){
     let s=sums();
-    a.innerHTML=`<h1>지현이의 가계부🤑</h1>${backupStatusHtml()}
-    <div class=card><div class=muted>내 지출</div><div class=big>${won(s.me)} <span class=muted>/ ${won(db.budgetMe)}</span></div><div class=bar><i style='width:${Math.min(100,s.me/db.budgetMe*100)}%'></i></div><p>남은 금액 ${won(Math.max(0,db.budgetMe-s.me))}</p></div>
-    <div class=card><div class=muted>엄마카드</div><div class=big>${won(s.mom)} <span class=muted>/ ${won(db.budgetMom)}</span></div><div class=bar><i style='width:${Math.min(100,s.mom/db.budgetMom*100)}%'></i></div><p>${s.mom>db.budgetMom?'<span class=danger>한도 초과 '+won(s.mom-db.budgetMom)+'</span>':'남은 한도 '+won(db.budgetMom-s.mom)}</p></div>
+    const total=s.me+s.mom, totalBudget=Number(db.budgetMe||0)+Number(db.budgetMom||0);
+    const pct=totalBudget?Math.min(100,total/totalBudget*100):0;
+    const fixedPlanned=db.fixed.reduce((sum,f)=>sum+Number(f.amount||0),0);
+    const fixedPaid=db.fixed.reduce((sum,f)=>{const tx=db.tx.find(x=>x.id===fixedTxId(f));return sum+(tx?Number(tx.amount||0):0)},0);
+    a.innerHTML=`<h1>지현이의 가계부🤑</h1>${monthNavHtml('homeMonthNav')}${backupStatusHtml()}
+    <div class='monthOverview clickableCard' onclick='showHomeDetail("all")'>
+      <div class='cardTopLine'><div class=muted>${monthLabel()} 전체 지출</div><span class=cardChevron>›</span></div>
+      <div class='overviewAmount'>${won(total)}</div>
+      <div class=bar><i style='width:${pct}%'></i></div>
+      <div class=progressMeta><span>월 예산 ${won(totalBudget)}</span><span>${Math.round(pct)}% 사용</span></div>
+    </div>
+    <div class='monthComment'><b>💸 이번 달 한마디</b>${esc(monthInsight())}</div>
+    ${homeCard('내 지출',s.me,db.budgetMe,'me',`<p>남은 금액 ${won(Math.max(0,db.budgetMe-s.me))}</p>`)}
+    ${homeCard('엄마카드',s.mom,db.budgetMom,'mom',`<p>${s.mom>db.budgetMom?'<span class=danger>한도 초과 '+won(s.mom-db.budgetMom)+'</span>':'남은 한도 '+won(db.budgetMom-s.mom)}</p>`)}
     <div class=card>
       <div class='fixedSummaryHead'>
-        <div>
-          <h3>이번 달 고정비</h3>
-          <div class='muted'>등록된 총 고정비</div>
-        </div>
-        <div class='fixedSummaryAmount'>${won(db.fixed.reduce((s,f)=>s+Number(f.amount||0),0))}</div>
+        <div><h3>${monthLabel()} 고정비</h3><div class='muted'>등록된 총 고정비</div></div>
+        <div><div class='fixedSummaryAmount'>${won(fixedPlanned)}</div><button class='smallbtn' onclick='showHomeDetail("fixed")'>내역 보기 ›</button></div>
       </div>
-      <div class='fixedPaidSummary'>
-        <span>지출 처리됨</span>
-        <b>${won(db.fixed.reduce((s,f)=>{const tx=db.tx.find(x=>x.id===fixedTxId(f));return s+(tx?Number(tx.amount||0):0)},0))}</b>
-      </div>
+      <div class='fixedPaidSummary'><span>지출 처리됨</span><b>${won(fixedPaid)}</b></div>
       ${renderFixedHome()}
     </div>
-    <div class=card><h3>최근 지출</h3>${s.t.slice(-5).reverse().map(x=>`<div class='row listitem'><span>${esc(x.memo||x.category)}<br><span class=muted>${esc(x.method)}</span></span><b>${won(x.amount)}</b></div>`).join('')||'<p class=muted>아직 기록이 없어요.</p>'}</div>`;
+    <div class=card><h3>최근 지출</h3>${s.t.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(x=>`<div class='row listitem'><span>${esc(x.memo||x.category)}<br><span class=muted>${esc(x.method)}</span></span><b>${won(x.amount)}</b></div>`).join('')||'<p class=muted>아직 기록이 없어요.</p>'}</div>`;
   } else if(tab==='history'){
-    a.innerHTML=`<h1>내역</h1><div class=card>${db.tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<div class='row listitem historyItem' onclick='editTx("${x.id}")'><span>${esc(x.date)} · ${esc(x.category)}<br><span class=muted>${esc(x.method)} · ${esc(x.memo||'')}</span></span><span class='historyRight'><b>${won(x.amount)}</b><span class=editHint>수정 ›</span></span></div>`).join('')||'기록 없음'}</div>`;
+    let t=monthTx(selectedMonth).slice().sort((a,b)=>b.date.localeCompare(a.date));
+    if(historyMethodFilter)t=t.filter(x=>x.method===historyMethodFilter);
+    if(historyCategoryFilter)t=t.filter(x=>x.category===historyCategoryFilter);
+    a.innerHTML=`<h1>내역</h1>${monthNavHtml('historyMonthNav')}
+      <div class='historyFilters'>
+        <select onchange='setHistoryMethod(this.value)'><option value=''>전체 결제수단</option>${db.methods.map(p=>`<option value='${esc(p.n)}' ${historyMethodFilter===p.n?'selected':''}>${esc(p.n)}</option>`).join('')}</select>
+        <select onchange='setHistoryCategory(this.value)'><option value=''>전체 카테고리</option>${db.categories.map(c=>`<option value='${esc(c)}' ${historyCategoryFilter===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+      </div>
+      <div class='filterCaption'><span>${monthLabel()}</span><span>${t.length}건 · ${won(t.reduce((s,x)=>s+Number(x.amount||0),0))}</span></div>
+      <div class=card>${t.map(x=>`<div class='row listitem historyItem' onclick='editTx("${x.id}")'><span>${esc(x.date)} · ${esc(x.category)}<br><span class=muted>${esc(x.method)} · ${esc(x.memo||'')}</span></span><span class='historyRight'><b>${won(x.amount)}</b><span class=editHint>수정 ›</span></span></div>`).join('')||`<p class=muted>조건에 맞는 ${monthLabel()} 기록이 없어요.</p>`}</div>`;
   } else if(tab==='calendar'){
     a.innerHTML=renderCalendar();
   } else if(tab==='analysis'){
-    let t=monthTx(), by={};
-    t.forEach(x=>by[x.category]=(by[x.category]||0)+x.amount);
-    let total=t.reduce((s,x)=>s+x.amount,0);
-    a.innerHTML=`<h1>분석</h1>
-    <div class=card><h3>카테고리별</h3>
+    let t=monthTx(selectedMonth);
+    if(analysisExcludeMom)t=t.filter(x=>db.methods.find(p=>p.n===x.method)?.owner!=='mom');
+    let by={}; t.forEach(x=>by[x.category]=(by[x.category]||0)+Number(x.amount||0));
+    let total=t.reduce((s,x)=>s+Number(x.amount||0),0);
+    a.innerHTML=`<h1>분석</h1>${monthNavHtml('analysisMonthNav')}
+    <div class='analysisFilterBar'>
+      <button class='${analysisExcludeMom?'active':''}' onclick='toggleAnalysisMom()'>${analysisExcludeMom?'✓ 엄마카드 제외 중':'엄마카드 제외해서 보기'}</button>
+      <span>${analysisExcludeMom?'내 지출만 분석 중':'엄마카드 포함'}</span>
+    </div>
+    <div class=card><div class='analysisTotal'><span>${monthLabel()} 총 분석 금액</span><b>${won(total)}</b></div><h3>카테고리별</h3>
       ${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
         <button class='analysisRow' onclick='showAnalysisDetail("category",${JSON.stringify(k)})'>
-          <span>${esc(k)}</span>
-          <span>${won(v)} · ${total?Math.round(v/total*100):0}% <b class=chev>›</b></span>
-        </button>`).join('')||'<p class=muted>이번 달 기록 없음</p>'}
+          <span>${esc(k)}</span><span>${won(v)} · ${total?Math.round(v/total*100):0}% <b class=chev>›</b></span>
+        </button>`).join('')||`<p class=muted>${monthLabel()} 기록 없음</p>`}
     </div>
     <div class=card><h3>결제수단별</h3>
-      ${db.methods.map(p=>{
-        let v=t.filter(x=>x.method===p.n).reduce((s,x)=>s+x.amount,0);
-        return `<button class='analysisRow' onclick='showAnalysisDetail("method",${JSON.stringify(p.n)})'>
-          <span>${esc(p.n)}</span>
-          <span>${won(v)} <b class=chev>›</b></span>
-        </button>`
-      }).join('')}
+      ${db.methods.filter(p=>!(analysisExcludeMom&&p.owner==='mom')).map(p=>{let v=t.filter(x=>x.method===p.n).reduce((s,x)=>s+Number(x.amount||0),0);return `<button class='analysisRow' onclick='showAnalysisDetail("method",${JSON.stringify(p.n)})'><span>${esc(p.n)}</span><span>${won(v)} <b class=chev>›</b></span></button>`}).join('')}
     </div>`;
   } else {
     a.innerHTML=`<h1>설정</h1>
-    <div class=card><label>내 월 한도<input id=bme type=number inputmode=numeric value='${db.budgetMe}'></label><label>엄마카드 한도<input id=bmom type=number inputmode=numeric value='${db.budgetMom}'></label><button class=action onclick='budgets()'>한도 저장</button></div>
+    <div class=card><h3>월 예산</h3><label>내 월 한도<input id=bme type=number inputmode=numeric value='${db.budgetMe}'></label><label>엄마카드 한도<input id=bmom type=number inputmode=numeric value='${db.budgetMom}'></label><button class=action onclick='budgets()'>한도 저장</button></div>
     <div class=card><h3>고정비 관리</h3>${db.fixed.slice().sort((a,b)=>a.day-b.day).map(f=>`<div class='row fixeditem'><span><b>${f.day}일 · ${esc(f.memo)}</b><br><span class=muted>${won(f.amount)} · ${esc(f.category)} · ${esc(f.method)}</span></span><button class=deletebtn onclick='deleteFixed(${JSON.stringify(f.id)})'>삭제</button></div>`).join('')||'<p class=muted>등록된 고정비가 없어요.</p>'}
-    <div class=fixedform><input id=fday type=number min=1 max=31 inputmode=numeric placeholder='결제일 (예: 15)'><input id=famt type=number inputmode=numeric placeholder='금액'><select id=fcat>${db.categories.map(x=>`<option>${esc(x)}</option>`)}</select><select id=fmethod>${db.methods.map(x=>`<option>${esc(x.n)}</option>`)}</select><input class=wide id=fmemo placeholder='고정비 이름 (예: 보험료)'><button class='action wide' onclick='addFixed()'>고정비 추가</button></div><p class=hint>홈에서 실제 결제된 고정비를 체크하면 그 달 지출로 들어갑니다. 체크 전에는 예정 금액이라 지출 합계에 포함되지 않아요.</p></div>
+    <div class=fixedform><input id=fday type=number min=1 max=31 inputmode=numeric placeholder='결제일 (예: 15)'><input id=famt type=number inputmode=numeric placeholder='금액'><select id=fcat>${db.categories.map(x=>`<option>${esc(x)}</option>`).join('')}</select><select id=fmethod>${db.methods.map(x=>`<option>${esc(x.n)}</option>`).join('')}</select><input class=wide id=fmemo placeholder='고정비 이름 (예: 보험료)'><button class='action wide' onclick='addFixed()'>고정비 추가</button></div><p class=hint>홈에서 실제 결제된 고정비를 체크하면 그 달 지출로 들어갑니다. 체크 전에는 예정 금액이라 지출 합계에 포함되지 않아요.</p></div>
     <div class=card><h3>카테고리 관리</h3><div class=catlist>${db.categories.map(x=>`<div class='row catrow'><span class=pill>${esc(x)}</span><button class='deletebtn' onclick='deleteCat(${JSON.stringify(x)})'>삭제</button></div>`).join('')}</div><div class='inline'><input id=newcat placeholder='새 카테고리'><button class=action onclick='addCat()'>추가</button></div><p class=hint>이미 사용한 카테고리를 삭제하면 해당 내역을 ‘기타’로 옮긴 뒤 삭제할 수 있어요.</p></div>
-    <div class=card><h3>데이터</h3><button class=action onclick='csv()'>CSV 내보내기</button><button class=action onclick='downloadTemplate()'>CSV 입력 양식 받기</button><label class=filelabel>CSV 가져오기<input type=file id=csvImport accept='.csv,text/csv'></label><button class=action onclick='importCsv()'>선택한 CSV 가져오기</button><div id=importStatus class=hint></div><hr><button class=action onclick='backup()'>JSON 백업</button><input type=file id=restore accept='.json,application/json'><button class=action onclick='restoreJson()'>JSON 복원</button></div>`;
+    <div class=card><h3>데이터 관리</h3><div class='settingsDataList'>
+      <div class='settingsDataCard'><div><strong>CSV 내보내기</strong><span>전체 지출 내역을 CSV로 저장해요.</span></div><button class='action' onclick='csv()'>내보내기</button></div>
+      <div class='settingsDataCard'><div><strong>CSV 가져오기</strong><span>양식에 맞춘 지출 내역을 추가해요.</span></div><label class='compactFile'>파일 선택<input type=file id=csvImport accept='.csv,text/csv'></label></div>
+      <div class='settingsDataCard'><div><strong>선택한 CSV 적용</strong><span>선택한 파일의 내역을 현재 데이터에 추가해요.</span></div><button class='action' onclick='importCsv()'>가져오기</button></div>
+      <div class='settingsDataCard'><div><strong>CSV 입력 양식</strong><span>가져오기용 기본 양식을 받아요.</span></div><button class='action' onclick='downloadTemplate()'>양식 받기</button></div>
+      <div class='settingsDataCard'><div><strong>전체 JSON 백업</strong><span>설정·고정비·모든 지출을 한 번에 보관해요.</span></div><button class='action' onclick='backup()'>백업</button></div>
+      <div class='settingsDataCard'><div><strong>JSON 복원</strong><span>이전에 저장한 전체 백업으로 되돌려요.</span></div><label class='compactFile'>파일 선택<input type=file id=restore accept='.json,application/json'></label></div>
+      <div class='settingsDataCard'><div><strong>선택한 백업 복원</strong><span>현재 데이터가 백업 내용으로 교체됩니다.</span></div><button class='action' onclick='restoreJson()'>복원</button></div>
+    </div></div>`;
   }
 }
+window.setHistoryMethod=v=>{historyMethodFilter=v;render()};
+window.setHistoryCategory=v=>{historyCategoryFilter=v;render()};
+window.showHomeDetail=type=>{
+  let t=monthTx(selectedMonth).slice();
+  let title=`${monthLabel()} 전체 지출`;
+  if(type==='me'){t=t.filter(x=>db.methods.find(p=>p.n===x.method)?.owner!=='mom'); title='내 지출';}
+  if(type==='mom'){t=t.filter(x=>db.methods.find(p=>p.n===x.method)?.owner==='mom'); title='엄마카드';}
+  if(type==='fixed'){t=t.filter(x=>x.fixedId); title='고정비 지출';}
+  t.sort((a,b)=>b.date.localeCompare(a.date));
+  const total=t.reduce((s,x)=>s+Number(x.amount||0),0);
+  const d=document.createElement('dialog');d.className='homeDetailDialog';
+  d.innerHTML=`<div class='homeDetailHead'><h2>${esc(title)}</h2><div class=muted>${monthLabel()} · ${t.length}건</div></div><div class='homeDetailBody'>${t.map(x=>`<div class='row listitem'><span>${esc(x.memo||x.category)}<br><span class=muted>${esc(x.date)} · ${esc(x.method)} · ${esc(x.category)}</span></span><b>${won(x.amount)}</b></div>`).join('')||'<p class=muted>해당 내역이 없어요.</p>'}</div><div class='homeDetailFoot'><span>합계</span><b>${won(total)}</b></div><button class=action id=closeHomeDetail>닫기</button>`;
+  document.body.append(d);d.showModal();d.querySelector('#closeHomeDetail').onclick=()=>{d.close();d.remove()};d.addEventListener('click',e=>{if(e.target===d){d.close();d.remove()}});
+};
 function addDialog(){
   let d=document.createElement('dialog');
-  d.innerHTML=`<h2>지출 추가</h2><input id=amt type=number inputmode=numeric placeholder='금액'><input id=date type=date value='${new Date().toISOString().slice(0,10)}'><select id=cat>${db.categories.map(x=>`<option>${esc(x)}</option>`)}</select><select id=method>${db.methods.map(x=>`<option>${esc(x.n)}</option>`)}</select><input id=memo placeholder='내용'><button class=action id=saveTx>저장</button><button class=action id=cancel>취소</button>`;
+  d.innerHTML=`<h2>지출 추가</h2><input id=amt type=number inputmode=numeric placeholder='금액'><input id=date type=date value='${localYmd()}'><select id=cat>${db.categories.map(x=>`<option>${esc(x)}</option>`)}</select><select id=method>${db.methods.map(x=>`<option>${esc(x.n)}</option>`)}</select><input id=memo placeholder='내용'><button class=action id=saveTx>저장</button><button class=action id=cancel>취소</button>`;
   document.body.append(d);d.showModal();
   d.querySelector('#saveTx').onclick=()=>{let amount=+d.querySelector('#amt').value;if(!amount)return;db.tx.push({id:crypto.randomUUID(),amount,date:d.querySelector('#date').value,category:d.querySelector('#cat').value,method:d.querySelector('#method').value,memo:d.querySelector('#memo').value});save();d.close();d.remove();render()};
   d.querySelector('#cancel').onclick=()=>{d.close();d.remove()};
@@ -241,7 +308,7 @@ window.toggleFixed=(id,checked)=>{
     if(db.tx.some(x=>x.id===txid)){render();return;}
 
     const input=prompt(
-      `${f.memo}\n이번 달 실제 결제금액을 입력해주세요.\n(예상금액 ${won(f.amount)})`,
+      `${f.memo}\n${monthLabel()} 실제 결제금액을 입력해주세요.\n(예상금액 ${won(f.amount)})`,
       String(f.amount)
     );
 
@@ -271,12 +338,16 @@ window.toggleFixed=(id,checked)=>{
   save();
   render();
 };
-window.moveMonth=n=>{let [y,m]=calMonth.split('-').map(Number);let d=new Date(y,m-1+n,1);calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;render()};
+window.moveMonth=n=>{let [y,m]=selectedMonth.split('-').map(Number);let d=new Date(y,m-1+n,1);selectedMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;render()};
+window.chooseMonth=()=>{const d=document.createElement('dialog');d.className='monthPickerDialog';d.innerHTML=`<h2>연·월 선택</h2><input id=monthPick type=month value='${selectedMonth}'><div class='monthPickerActions'><button class=action id=applyMonth>선택</button><button class=action id=cancelMonth>취소</button></div>`;document.body.append(d);d.showModal();d.querySelector('#applyMonth').onclick=()=>{const v=d.querySelector('#monthPick').value;if(v)selectedMonth=v;d.close();d.remove();render()};d.querySelector('#cancelMonth').onclick=()=>{d.close();d.remove()};};
 window.toggleCalendarMom=()=>{calExcludeMom=!calExcludeMom;render()};
+window.toggleAnalysisMom=()=>{analysisExcludeMom=!analysisExcludeMom;render()};
 window.showDay=date=>{let items=db.tx.filter(x=>x.date===date).filter(x=>{if(!calExcludeMom)return true;const p=db.methods.find(p=>p.n===x.method);return p?.owner!=='mom'});let d=document.createElement('dialog');d.innerHTML=`<h2>${date}</h2>${items.map(x=>`<div class='row listitem'><span>${esc(x.memo||x.category)}<br><span class=muted>${esc(x.method)} · ${esc(x.category)}</span></span><b>${won(x.amount)}</b></div>`).join('')||'<p class=muted>지출 없음</p>'}<p><b>합계 ${won(items.reduce((s,x)=>s+x.amount,0))}</b></p><button class=action>닫기</button>`;document.body.append(d);d.showModal();d.querySelector('button').onclick=()=>{d.close();d.remove()}};
 
 window.showAnalysisDetail=(type,value)=>{
-  const t=monthTx().filter(x=>type==='category' ? x.category===value : x.method===value)
+  let t=monthTx(selectedMonth);
+  if(analysisExcludeMom)t=t.filter(x=>db.methods.find(p=>p.n===x.method)?.owner!=='mom');
+  t=t.filter(x=>type==='category' ? x.category===value : x.method===value)
                    .sort((a,b)=>b.date.localeCompare(a.date));
   const total=t.reduce((s,x)=>s+Number(x.amount||0),0);
   const title=type==='category' ? `${value} 세부내역` : `${value} 세부내역`;
@@ -286,7 +357,7 @@ window.showAnalysisDetail=(type,value)=>{
     <div class='detailHead'>
       <div>
         <h2>${esc(title)}</h2>
-        <p class='muted'>이번 달 ${t.length}건 · 총 ${won(total)}</p>
+        <p class='muted'>${monthLabel()} ${t.length}건 · 총 ${won(total)}</p>
       </div>
       <button class='dialogClose' aria-label='닫기'>×</button>
     </div>
