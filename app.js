@@ -157,6 +157,7 @@ function homeCard(title,amount,budget,type,extra=''){
     <div class=bar><i style='width:${pct}%'></i></div>${extra}</div>`;
 }
 function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   let a=document.querySelector('#app');
   if(tab==='home'){
     let s=sums();
@@ -391,6 +392,30 @@ function toCSV(rows){return rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"
 function parseCSV(text){text=text.replace(/^\uFEFF/,'');const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=false;else field+=c}else{if(c==='"')quoted=true;else if(c===','){row.push(field);field=''}else if(c==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field=''}else field+=c}}if(field.length||row.length){row.push(field.replace(/\r$/,''));rows.push(row)}return rows.filter(r=>r.some(v=>String(v).trim()!==''))}
 function normalizeDate(v){v=String(v||'').trim();let m=v.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);if(!m)return null;return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`}
 window.importCsv=()=>{const f=document.querySelector('#csvImport')?.files?.[0];if(!f){alert('가져올 CSV 파일을 먼저 선택해주세요.');return;}const r=new FileReader();r.onload=()=>{try{const rows=parseCSV(r.result);if(rows.length<2)throw new Error('데이터가 없어요.');const headers=rows[0].map(x=>String(x).trim());const aliases={date:['날짜','일자','사용일자'],amount:['금액','사용금액','승인금액'],category:['카테고리','분류'],method:['결제수단','지불수단','결제방법'],memo:['내용','메모','상세내용','가맹점']};const idx={};for(const [k,names] of Object.entries(aliases))idx[k]=headers.findIndex(h=>names.includes(h));if(idx.date<0||idx.amount<0||idx.category<0||idx.method<0)throw new Error('첫 줄에 날짜, 금액, 카테고리, 결제수단 열이 필요해요.');let added=0,skipped=0;for(const row of rows.slice(1)){const date=normalizeDate(row[idx.date]);const amount=Number(String(row[idx.amount]||'').replace(/[원,\s]/g,''));const category=String(row[idx.category]||'').trim()||'기타';const method=String(row[idx.method]||'').trim();const memo=idx.memo>=0?String(row[idx.memo]||'').trim():'';if(!date||!Number.isFinite(amount)||amount<=0||!db.methods.some(p=>p.n===method)){skipped++;continue;}if(!db.categories.includes(category))db.categories.push(category);db.tx.push({id:crypto.randomUUID(),date,amount,category,method,memo});added++;}save();render();alert(`${added}건을 가져왔어요.${skipped?`\n${skipped}건은 건너뛰었어요.`:''}`)}catch(e){alert('CSV를 가져오지 못했어요. '+e.message)}};r.readAsText(f,'utf-8')};
-window.restoreJson=()=>{let f=restore.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{const obj=JSON.parse(r.result);if(!obj||!Array.isArray(obj.tx)||!Array.isArray(obj.categories))throw new Error();db=obj;db.fixed ||= [];if(!db.methods.some(x=>x.n==='체크카드'))db.methods.push({n:'체크카드',owner:'me'});save();render();alert('백업을 복원했어요.')}catch(e){alert('백업 파일을 읽을 수 없어요.')}};r.readAsText(f)};
+window.restoreJson=()=>{
+  const input=document.querySelector('#restore');
+  const f=input?.files?.[0];
+  if(!f){alert('복원할 JSON 백업 파일을 먼저 선택해주세요.');return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const obj=JSON.parse(r.result);
+      if(!obj||!Array.isArray(obj.tx)||!Array.isArray(obj.categories))throw new Error('필수 데이터가 없는 백업 파일이에요.');
+      obj.fixed=Array.isArray(obj.fixed)?obj.fixed:[];
+      obj.methods=Array.isArray(obj.methods)?obj.methods:[{n:'내 신용카드',owner:'me'},{n:'엄마카드',owner:'mom'},{n:'계좌이체',owner:'me'},{n:'체크카드',owner:'me'}];
+      if(!obj.methods.some(x=>x.n==='체크카드'))obj.methods.push({n:'체크카드',owner:'me'});
+      db=obj;
+      save();
+      render();
+      alert(`백업을 복원했어요.\n지출 ${db.tx.length}건 · 고정비 ${db.fixed.length}건`);
+      if(input)input.value='';
+    }catch(e){
+      console.error(e);
+      alert('백업 파일을 읽을 수 없어요. '+(e?.message||''));
+    }
+  };
+  r.onerror=()=>alert('파일을 여는 중 오류가 발생했어요.');
+  r.readAsText(f,'utf-8');
+};
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
 document.querySelector('#add').onclick=addDialog; save(); render();
