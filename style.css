@@ -733,3 +733,40 @@ nav{
 .card,.monthOverview,.monthComment,.calendarPage,.analysisFilterBar,.settingsDataCard,
 input,select,button,canvas{max-width:100%}
 .row>*{min-width:0}
+
+/* ===== v10.6 smaller typography ===== */
+:root{font-size:14px}
+h1{font-size:23px}
+h2{font-size:17px}
+h3{font-size:15px}
+.muted{font-size:12px}.big{font-size:22px}
+input,select,button.action{font-size:14px}
+.pill{font-size:11px}.hint{font-size:12px}
+.monthNavTitle{font-size:16px}.calendarMonthPick{font-size:18px}.monthTitle h1{font-size:18px}.monthSpend{font-size:12px}
+.weekdayRow div{font-size:12px}.calDate{font-size:15px}.calAmount{font-size:10px}.weekSummary{font-size:11px}.weekSummary b{font-size:14px}
+.analysisRow{font-size:13px}.analysisTotal{font-size:12px}.analysisTotal b{font-size:14px}.detailHead h2{font-size:17px}.detailTotal{font-size:14px}.detailMeta{font-size:11px}
+.fixedSummaryAmount{font-size:20px}.fixedPaidSummary{font-size:12px}.fixedPaidSummary b{font-size:13px}
+.calendarFilterBar button,.calendarFilterBar span,.analysisFilterBar button,.analysisFilterBar span{font-size:11px}
+.backupNotice,.backupNotice button,.backupOk{font-size:11px}.backupNotice b{font-size:13px}
+.monthOverview .overviewAmount{font-size:21px}.progressMeta{font-size:11px}.monthComment{font-size:12px}
+.filterCaption{font-size:11px}.settingsDataCard strong{font-size:13px}.settingsDataCard span{font-size:10px}.settingsDataCard button,.settingsDataCard .compactFile{font-size:11px}
+nav button{font-size:10px}nav button .navEmoji{font-size:17px}
+
+/* ===== v10.7 centered calendar ===== */
+.calendarPage{
+  width:calc(100% + 30px);
+  max-width:none !important;
+  margin-left:-15px;
+  margin-right:-15px;
+}
+.calendarBoard,
+.calendarTop,
+.calendarFilterBar{
+  width:100%;
+  margin-left:auto;
+  margin-right:auto;
+}
+.weekdayRow,
+.weekDays{
+  width:100%;
+}
