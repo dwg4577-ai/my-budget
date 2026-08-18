@@ -619,3 +619,38 @@ nav button.active{
 }
 nav button.active .nav-icon{color:#62666d}
 .fab{bottom:calc(94px + env(safe-area-inset-bottom))}
+
+/* ===== v10.4 fixed bottom nav + compact calendar ===== */
+html,body{min-height:100%;overflow-x:hidden}
+body{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+nav{
+  position:fixed !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:0 !important;
+  width:100% !important;
+  z-index:9999 !important;
+  transform:translateZ(0);
+  -webkit-transform:translateZ(0);
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  will-change:transform;
+}
+.fab{position:fixed !important;z-index:10000 !important}
+
+/* Calendar: reduce vertical height while keeping amounts readable */
+.calendarTop{padding:8px 18px 11px}
+.weekdayRow div{padding:9px 0 8px}
+.calDay{min-height:82px;padding:9px 2px 5px}
+.calDate{width:27px;height:27px;font-size:15px}
+.calAmount{margin-top:5px;font-size:10.5px;line-height:1.15}
+.weekSummary{min-height:30px;padding:0 16px;font-size:11px}
+.weekSummary b{font-size:14px}
+.calendarWeek{border-bottom-width:6px}
+.calendarHint{margin-top:11px}
+@media (max-width:380px){
+  .calDay{min-height:76px}
+  .calDate{font-size:14px}
+  .calAmount{font-size:10px}
+  .weekSummary b{font-size:13px}
+}
